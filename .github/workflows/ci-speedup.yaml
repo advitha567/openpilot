@@ -1,0 +1,44 @@
+name: Speedup Setup Native
+on:
+  push:
+    branches:
+      - ci-speedup
+
+jobs:
+  native-setup:
+    runs-on: ubuntu-20.04
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Cache pip packages
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/pyproject.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            tzdata locales ssh pulseaudio xvfb x11-xserver-utils gnome-screenshot \
+            python3-tk python3-dev unzip tmux vim wget curl tar xz-utils \
+            gcc-arm-none-eabi
+
+      - name: Install Python dependencies with uv
+        run: |
+          curl -Ls https://astral.sh/uv/install.sh | bash
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          uv venv
+          uv pip install -r tools/install_python_dependencies.sh || pip install .  # fallback
+
+      - name: Run build (simulate Docker setup)
+        run: |
+          scons --cache-readonly -j$(nproc)
